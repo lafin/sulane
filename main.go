@@ -13,9 +13,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type task struct {
-	org  string
-	repo string
+// Task - struct of a task
+type Task struct {
+	owner                 string
+	repo                  string
+	shouldRestartedFailed bool
 }
 
 var (
@@ -32,11 +34,15 @@ var (
 	fillArrow   = "\u25B6"
 )
 
-func worker(client *github.Client, t task, wg *sync.WaitGroup) {
+func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
 	defer wg.Done()
-	runs, _, _ := client.Actions.ListRepositoryWorkflowRuns(context.Background(), t.org, t.repo, &github.ListWorkflowRunsOptions{
+	var err error
+	runs, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
 		Event: "push",
 	})
+	if err != nil {
+		log.Panic(err)
+	}
 	var foundRuns []string
 	filteredRuns := funk.Filter(runs.WorkflowRuns, func(run *github.WorkflowRun) bool {
 		if funk.ContainsString(foundRuns, run.GetName()) {
@@ -48,12 +54,13 @@ func worker(client *github.Client, t task, wg *sync.WaitGroup) {
 	if len(filteredRuns) == 0 {
 		return
 	}
-	fmt.Printf("%s %s/%s\n", fillArrow, t.org, t.repo)
+	fmt.Printf("%s %s/%s\n", fillArrow, task.owner, task.repo)
 	for _, run := range filteredRuns {
+		isFailed := run.GetConclusion() == "failure"
 		symbol := fillCircle
 		if run.GetConclusion() == "success" {
 			fmt.Print(colorGreen)
-		} else if run.GetConclusion() == "failure" {
+		} else if isFailed {
 			fmt.Print(colorRed)
 		} else if funk.ContainsString([]string{"in_progress", "queued"}, run.GetConclusion()) {
 			symbol = emptyCircle
@@ -63,10 +70,19 @@ func worker(client *github.Client, t task, wg *sync.WaitGroup) {
 		}
 		fmt.Printf("%s %s %s %s %s", symbol, run.GetName(), run.GetStatus(), run.GetConclusion(), run.GetCreatedAt())
 		fmt.Println(colorReset)
+		if isFailed && task.shouldRestartedFailed {
+			fmt.Printf("restarted: %s %s %s\n", task.owner, task.repo, run.GetName())
+			_, _, err = client.Repositories.Dispatch(ctx, task.owner, task.repo, github.DispatchRequestOptions{
+				EventType: run.GetName(),
+			})
+			if err != nil {
+				log.Panic(err)
+			}
+		}
 	}
 }
 
-func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]task, user, org string) {
+func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task, user, org string) {
 	var repos []*github.Repository
 	var err error
 	if user == "" {
@@ -82,9 +98,10 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]task,
 		log.Panic(err)
 	}
 	for _, repo := range repos {
-		*tasks = append(*tasks, task{
-			org:  org,
-			repo: repo.GetName(),
+		*tasks = append(*tasks, Task{
+			owner:                 org,
+			repo:                  repo.GetName(),
+			shouldRestartedFailed: false,
 		})
 	}
 }
@@ -99,7 +116,7 @@ func main() {
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
-	tasks := []task{}
+	tasks := []Task{}
 	addTasksForLogin(ctx, client, &tasks, githubLogin, "")
 	orgs, _, err := client.Organizations.List(ctx, githubLogin, nil)
 	if err != nil {
@@ -111,7 +128,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, task := range tasks {
 		wg.Add(1)
-		go worker(client, task, &wg)
+		go worker(ctx, client, task, &wg)
 	}
 	wg.Wait()
 }
