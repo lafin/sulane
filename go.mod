@@ -1,4 +1,4 @@
-module github.com/lafin/github-actions
+module github.com/lafin/github-action-status
 
 go 1.17
 

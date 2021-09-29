@@ -1,4 +1,4 @@
-name: tool
+name: github-action-status
 on:
   push:
     branches:
@@ -15,7 +15,6 @@ jobs:
       - uses: golangci/golangci-lint-action@v2
         with:
           version: v1.41
-          working-directory: .
           args: --modules-download-mode=readonly
       - name: Test
         run: |
