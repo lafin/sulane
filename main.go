@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/google/go-github/v38/github"
 	"github.com/joho/godotenv"
@@ -44,7 +45,11 @@ func worker(ctx context.Context, client *github.Client, task Task, wg *sync.Wait
 		log.Panic(err)
 	}
 	var foundRuns []string
+	startFromDate := time.Now().Add(-(1 * 30 * 24 * time.Hour))
 	filteredRuns := funk.Filter(runs.WorkflowRuns, func(run *github.WorkflowRun) bool {
+		if startFromDate.After(run.GetCreatedAt().Time) {
+			return false
+		}
 		if funk.ContainsString(foundRuns, run.GetName()) {
 			return false
 		}
@@ -71,10 +76,8 @@ func worker(ctx context.Context, client *github.Client, task Task, wg *sync.Wait
 		fmt.Printf("%s %s %s %s %s", symbol, run.GetName(), run.GetStatus(), run.GetConclusion(), run.GetCreatedAt())
 		fmt.Println(colorReset)
 		if isFailed && task.shouldRestartedFailed {
-			fmt.Printf("restarted: %s %s %s\n", task.owner, task.repo, run.GetName())
-			_, _, err = client.Repositories.Dispatch(ctx, task.owner, task.repo, github.DispatchRequestOptions{
-				EventType: run.GetName(),
-			})
+			fmt.Printf("restarted: %s/%s %s\n", task.owner, task.repo, run.GetName())
+			_, err = client.Actions.RerunWorkflowByID(ctx, task.owner, task.repo, run.GetID())
 			if err != nil {
 				log.Panic(err)
 			}
