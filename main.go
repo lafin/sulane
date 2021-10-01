@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/google/go-github/v38/github"
-	"github.com/joho/godotenv"
 	"github.com/thoas/go-funk"
 	"golang.org/x/oauth2"
 )
@@ -30,9 +29,9 @@ var (
 )
 
 var (
-	emptyCircle = "\u25EF"
-	fillCircle  = "\u25CF"
-	fillArrow   = "\u25B6"
+	emptyCircle = "\u25ef"
+	fillCircle  = "\u25cf"
+	fillArrow   = "\u25b6"
 )
 
 func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
@@ -67,7 +66,7 @@ func worker(ctx context.Context, client *github.Client, task Task, wg *sync.Wait
 			fmt.Print(colorGreen)
 		} else if isFailed {
 			fmt.Print(colorRed)
-		} else if funk.ContainsString([]string{"in_progress", "queued"}, run.GetConclusion()) {
+		} else if funk.ContainsString([]string{"in_progress", "queued"}, run.GetStatus()) {
 			symbol = emptyCircle
 			fmt.Print(colorGray)
 		} else {
@@ -100,28 +99,46 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 	if err != nil {
 		log.Panic(err)
 	}
+	shouldRestartedFailed := false
+	shouldRestartedFailedKey := contextKey("should-restarted-failed")
+	if v := ctx.Value(shouldRestartedFailedKey); v != nil {
+		shouldRestartedFailed = v.(bool)
+	}
 	for _, repo := range repos {
 		*tasks = append(*tasks, Task{
 			owner:                 org,
 			repo:                  repo.GetName(),
-			shouldRestartedFailed: false,
+			shouldRestartedFailed: shouldRestartedFailed,
 		})
 	}
 }
 
+type contextKey string
+
 func main() {
-	_ = godotenv.Load()
-	githubLogin := os.Getenv("GITHUB_LOGIN")
-	accessToken := os.Getenv("ACCESS_TOKEN")
+	githubLogin := flag.String("login", "", "github login")
+	accessToken := flag.String("token", "", "github token")
+	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed")
+	flag.Parse()
+
+	if *githubLogin == "" || *accessToken == "" {
+		log.Panic("should specify a github login and a github token")
+	}
+
 	ctx := context.Background()
+	if *shouldRestartedFailedValue {
+		shouldRestartedFailedKey := contextKey("should-restarted-failed")
+		ctx = context.WithValue(ctx, shouldRestartedFailedKey, *shouldRestartedFailedValue)
+	}
+
 	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken},
+		&oauth2.Token{AccessToken: *accessToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 	tasks := []Task{}
-	addTasksForLogin(ctx, client, &tasks, githubLogin, "")
-	orgs, _, err := client.Organizations.List(ctx, githubLogin, nil)
+	addTasksForLogin(ctx, client, &tasks, *githubLogin, "")
+	orgs, _, err := client.Organizations.List(ctx, *githubLogin, nil)
 	if err != nil {
 		log.Panic(err)
 	}
