@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*
   pull_request:
     branches:
       - master
@@ -26,3 +28,33 @@ jobs:
           $(go env GOPATH)/bin/goveralls -service="github" -coverprofile=${{ github.workspace }}/profile.cov
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    runs-on: ubuntu-latest
+    needs: [lint]
+    if: startsWith(github.ref, 'refs/tags')
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Build
+        run: |
+          goos=("linux" "darwin" "windows")
+          goarch=("amd64" "arm64")
+          for os in "${goos[@]}"; do
+            for arch in "${goarch[@]}"; do
+              ext=`if [ $os == "windows" ]; then echo ".exe"; fi`;
+              go build -o "releases/gas-${os}-${arch}${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
+            done
+          done
+      - name: Get Tag name
+        run: echo "TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: "${{ env.TAG }}"
+          tag: "${{ env.TAG }}"
+          body: |
+            ### `gas` @ ${{ env.TAG }}
+          artifacts: "releases/gas-*"
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
