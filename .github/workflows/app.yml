@@ -42,7 +42,9 @@ jobs:
           for os in "${goos[@]}"; do
             for arch in "${goarch[@]}"; do
               ext=`if [ $os == "windows" ]; then echo ".exe"; fi`;
-              go build -o "releases/gas-${os}-${arch}${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
+              go build -o "releases/github-action-status${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
+              tar czf "releases/github-action-status-${os}-${arch}.tar.gz" -C "releases" "github-action-status${ext}"
+              rm releases/github-action-status${ext}
             done
           done
       - name: Get Tag name
@@ -53,8 +55,8 @@ jobs:
           name: "${{ env.TAG }}"
           tag: "${{ env.TAG }}"
           body: |
-            ### `gas` @ ${{ env.TAG }}
-          artifacts: "releases/gas-*"
+            ### `github-action-status` @ ${{ env.TAG }}
+          artifacts: "releases/github-action-status-*"
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
