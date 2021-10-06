@@ -3,5 +3,12 @@
 ### How to use
 
 ```sh
-$ gas-darwin-amd64 -login=<GITHUB LOGIN> -token=<GITHUB TOKEN> -restart=<"true" if unsuccessful tasks need to be restarted>
+$ go install github.com/lafin/github-action-status@latest
+$ github-action-status -h
+  -login string
+    	github login
+  -restart
+    	should restarted failed
+  -token string
+    	github token
 ```
