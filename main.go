@@ -14,6 +14,8 @@ type Task struct {
 	owner                 string
 	repo                  string
 	shouldRestartedFailed bool
+	verbose               bool
+	last                  string
 }
 
 func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
@@ -25,11 +27,13 @@ func worker(ctx context.Context, client *github.Client, task Task, wg *sync.Wait
 	if err != nil {
 		log.Panic(err)
 	}
-	filteredRuns := ProcessingWorkflowRuns(runs.WorkflowRuns)
+	filteredRuns := ProcessingWorkflowRuns(task, runs.WorkflowRuns)
 	if len(filteredRuns) == 0 {
 		return
 	}
-	PrintStatus(task, filteredRuns)
+	if task.verbose {
+		PrintStatus(task, filteredRuns)
+	}
 	if task.shouldRestartedFailed {
 		for _, run := range filteredRuns {
 			if run.GetConclusion() == "failure" {
@@ -57,32 +61,40 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 	if err != nil {
 		log.Panic(err)
 	}
-	shouldRestartedFailed := GetShouldRestartedFailedArgFromContext(ctx)
+	shouldRestartedFailed := GetBoolArgFromContext(ctx, "shouldRestartedFailed")
+	verbose := GetBoolArgFromContext(ctx, "verbose")
+	last := GetStringArgFromContext(ctx, "last")
 	for _, repo := range repos {
 		*tasks = append(*tasks, Task{
 			owner:                 org,
 			repo:                  repo.GetName(),
 			shouldRestartedFailed: shouldRestartedFailed,
+			verbose:               verbose,
+			last:                  last,
 		})
 	}
 }
 
 func main() {
-	githubLogin := flag.String("login", "", "github login")
-	accessToken := flag.String("token", "", "github token")
-	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed")
+	githubLoginValue := flag.String("login", "", "github login")
+	accessTokenValue := flag.String("token", "", "github token")
+	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed (default: false)")
+	verboseValue := flag.Bool("verbose", false, "verbose mode (default: false)")
+	lastValue := flag.String("last", "30d", "get the results of actions for the last days (default: 30d)")
 	flag.Parse()
-	if *githubLogin == "" || *accessToken == "" {
+	if *githubLoginValue == "" || *accessTokenValue == "" {
 		log.Panic("should specify a github login and a github token")
 	}
 
 	ctx := context.Background()
-	ctx = AddShouldRestartedFailedArgToContext(ctx, *shouldRestartedFailedValue)
-	client := GetClient(ctx, *accessToken)
+	ctx = AddBoolArgToContext(ctx, "shouldRestartedFailed", *shouldRestartedFailedValue)
+	ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
+	ctx = AddStringArgToContext(ctx, "last", *lastValue)
+	client := GetClient(ctx, *accessTokenValue)
 
 	tasks := []Task{}
-	addTasksForLogin(ctx, client, &tasks, *githubLogin, "")
-	orgs, _, err := client.Organizations.List(ctx, *githubLogin, nil)
+	addTasksForLogin(ctx, client, &tasks, *githubLoginValue, "")
+	orgs, _, err := client.Organizations.List(ctx, *githubLoginValue, nil)
 	if err != nil {
 		log.Panic(err)
 	}
