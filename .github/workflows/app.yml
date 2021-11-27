@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
       - uses: golangci/golangci-lint-action@v2
         with:
           version: latest
@@ -35,6 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
       - name: Build
         run: |
           goos=("linux" "darwin" "windows")
@@ -42,7 +46,7 @@ jobs:
           for os in "${goos[@]}"; do
             for arch in "${goarch[@]}"; do
               ext=`if [ $os == "windows" ]; then echo ".exe"; fi`;
-              go build -o "releases/github-action-status${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
+              GOOS=${os} GOARCH=${arch} go build -o "releases/github-action-status${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
               tar czf "releases/github-action-status-${os}-${arch}.tar.gz" -C "releases" "github-action-status${ext}"
               rm releases/github-action-status${ext}
             done
