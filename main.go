@@ -18,22 +18,23 @@ type Task struct {
 	last                  string
 }
 
+func getWorkflowRuns(ctx context.Context, client *github.Client, task Task) []*github.WorkflowRun {
+	var runs []*github.WorkflowRun
+	for _, event := range []string{"push", "schedule", "workflow_dispatch"} {
+		workflowRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
+			Event: event,
+		})
+		if err != nil {
+			log.Panic(err)
+		}
+		runs = append(runs, workflowRuns.WorkflowRuns...)
+	}
+	return runs
+}
+
 func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
 	defer wg.Done()
-	var err error
-	pushRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
-		Event: "push",
-	})
-	if err != nil {
-		log.Panic(err)
-	}
-	scheduleRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
-		Event: "schedule",
-	})
-	if err != nil {
-		log.Panic(err)
-	}
-	filteredRuns := ProcessingWorkflowRuns(task, append(pushRuns.WorkflowRuns, scheduleRuns.WorkflowRuns...))
+	filteredRuns := ProcessingWorkflowRuns(task, getWorkflowRuns(ctx, client, task))
 	if len(filteredRuns) == 0 {
 		return
 	}
@@ -43,7 +44,7 @@ func worker(ctx context.Context, client *github.Client, task Task, wg *sync.Wait
 	if task.shouldRestartedFailed {
 		for _, run := range filteredRuns {
 			if run.GetConclusion() == "failure" {
-				_, err = client.Actions.RerunWorkflowByID(ctx, task.owner, task.repo, run.GetID())
+				_, err := client.Actions.RerunWorkflowByID(ctx, task.owner, task.repo, run.GetID())
 				if err != nil {
 					log.Panic(err)
 				}

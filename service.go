@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -22,6 +23,9 @@ func parseDaysNumberFlag(value string) int {
 
 // ProcessingWorkflowRuns - filtering workflow runners from github by criteries
 func ProcessingWorkflowRuns(task Task, runs []*github.WorkflowRun) []*github.WorkflowRun {
+	sort.Slice(runs, func(i, j int) bool {
+		return runs[i].GetCreatedAt().Time.After(runs[j].GetCreatedAt().Time)
+	})
 	var foundRuns []string
 	daysNumber := parseDaysNumberFlag(task.last)
 	startFromDate := time.Now().Add(-(1 * time.Duration(daysNumber) * 24 * time.Hour))
