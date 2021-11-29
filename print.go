@@ -18,12 +18,11 @@ var (
 var (
 	emptyCircle = "\u25ef"
 	fillCircle  = "\u25cf"
-	fillArrow   = "\u25b6"
 )
 
 // PrintStatus - print status of runners
 func PrintStatus(task Task, runs []*github.WorkflowRun) {
-	fmt.Printf("%s %s/%s\n", fillArrow, task.owner, task.repo)
+	fmt.Printf("%s/%s\n", task.owner, task.repo)
 	for _, run := range runs {
 		symbol := fillCircle
 		if run.GetConclusion() == "success" {
@@ -36,7 +35,7 @@ func PrintStatus(task Task, runs []*github.WorkflowRun) {
 		} else {
 			fmt.Print(colorWhite)
 		}
-		fmt.Printf("%s %s %s %s %s", symbol, run.GetName(), run.GetStatus(), run.GetConclusion(), run.GetCreatedAt())
+		fmt.Printf("  %s %s %s %s %s", symbol, run.GetName(), run.GetStatus(), run.GetConclusion(), run.GetCreatedAt())
 		fmt.Println(colorReset)
 	}
 }

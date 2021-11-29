@@ -14,5 +14,5 @@ $ github-action-status -h
   -token string
     	github token
   -verbose
-    	verbose mode (default: false)
+    	verbose mode (default: true)
 ```

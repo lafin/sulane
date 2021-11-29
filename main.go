@@ -21,13 +21,19 @@ type Task struct {
 func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var err error
-	runs, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
+	pushRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
 		Event: "push",
 	})
 	if err != nil {
 		log.Panic(err)
 	}
-	filteredRuns := ProcessingWorkflowRuns(task, runs.WorkflowRuns)
+	scheduleRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
+		Event: "schedule",
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	filteredRuns := ProcessingWorkflowRuns(task, append(pushRuns.WorkflowRuns, scheduleRuns.WorkflowRuns...))
 	if len(filteredRuns) == 0 {
 		return
 	}
@@ -79,7 +85,7 @@ func main() {
 	githubLoginValue := flag.String("login", "", "github login")
 	accessTokenValue := flag.String("token", "", "github token")
 	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed (default: false)")
-	verboseValue := flag.Bool("verbose", false, "verbose mode (default: false)")
+	verboseValue := flag.Bool("verbose", true, "verbose mode (default: true)")
 	lastValue := flag.String("last", "30d", "get the results of actions for the last days (default: 30d)")
 	flag.Parse()
 	if *githubLoginValue == "" || *accessTokenValue == "" {
