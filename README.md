@@ -3,7 +3,7 @@
 ### How to use
 
 ```sh
-$ go install github.com/lafin/github-action-status@latest
+$ go install github.com/lafin/github-action-status
 $ github-action-status -h
   Usage of ./github-action-status:
   -last string
