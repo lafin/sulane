@@ -1,5 +1,9 @@
 ### github-action-status (gas) [![github-action-status](https://github.com/lafin/github-action-status/actions/workflows/app.yml/badge.svg)](https://github.com/lafin/github-action-status/actions/workflows/app.yml)
 
+> The idea is to provide a tool to generate a report with all repositories and display the status of actions for that repository (passed or failed)
+
+![](assets/image.png)
+
 ### How to use
 
 ```sh
