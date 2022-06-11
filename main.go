@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/google/go-github/v38/github"
+	"github.com/thoas/go-funk"
 )
 
 // Task - struct of a task
@@ -68,6 +69,12 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 	if err != nil {
 		log.Panic(err)
 	}
+	skipArchive := GetBoolArgFromContext(ctx, "skipArchive")
+	if skipArchive {
+		repos = funk.Filter(repos, func(repo *github.Repository) bool {
+			return !repo.GetArchived()
+		}).([]*github.Repository)
+	}
 	shouldRestartedFailed := GetBoolArgFromContext(ctx, "shouldRestartedFailed")
 	verbose := GetBoolArgFromContext(ctx, "verbose")
 	last := GetStringArgFromContext(ctx, "last")
@@ -87,16 +94,19 @@ func main() {
 	accessTokenValue := flag.String("token", "", "github token")
 	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed (default: false)")
 	verboseValue := flag.Bool("verbose", true, "verbose mode (default: true)")
-	lastValue := flag.String("last", "30d", "get the results of actions for the last days (default: 30d)")
+	lastValue := flag.String("last", "30d", "get the results of actions for the last days")
+	skipArchiveValue := flag.Bool("skipArchive", true, "skip archived (default: true)")
 	flag.Parse()
 	if *githubLoginValue == "" || *accessTokenValue == "" {
-		log.Panic("should specify a github login and a github token")
+		log.Println("should specify a github login and a github token")
+		return
 	}
 
 	ctx := context.Background()
 	ctx = AddBoolArgToContext(ctx, "shouldRestartedFailed", *shouldRestartedFailedValue)
 	ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
 	ctx = AddStringArgToContext(ctx, "last", *lastValue)
+	ctx = AddBoolArgToContext(ctx, "skipArchive", *skipArchiveValue)
 	client := GetClient(ctx, *accessTokenValue)
 
 	tasks := []Task{}

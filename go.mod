@@ -1,6 +1,6 @@
 module github.com/lafin/github-action-status
 
-go 1.17
+go 1.18
 
 require (
 	github.com/google/go-github/v38 v38.1.0
