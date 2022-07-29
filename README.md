@@ -17,9 +17,9 @@ $ github-action-status -h
   -restart
     	should restarted failed (default: false)
   -skipArchive
-    	skip archived (default: true) (default true)
+    	skip archived (default: true)
   -token string
     	github token
   -verbose
-    	verbose mode (default: true) (default true)
+    	verbose mode (default: true)
 ```
