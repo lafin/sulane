@@ -92,10 +92,10 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 func main() {
 	githubLoginValue := flag.String("login", "", "github login")
 	accessTokenValue := flag.String("token", "", "github token")
-	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed (default: false)")
-	verboseValue := flag.Bool("verbose", true, "verbose mode (default: true)")
+	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed")
+	verboseValue := flag.Bool("verbose", true, "verbose mode")
 	lastValue := flag.String("last", "30d", "get the results of actions for the last days")
-	skipArchiveValue := flag.Bool("skipArchive", true, "skip archived (default: true)")
+	skipArchiveValue := flag.Bool("skipArchive", true, "skip archived")
 	flag.Parse()
 	if *githubLoginValue == "" || *accessTokenValue == "" {
 		log.Println("should specify a github login and a github token")
