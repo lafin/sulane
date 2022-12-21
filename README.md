@@ -11,15 +11,17 @@ $ go install github.com/lafin/github-action-status
 $ github-action-status -h
   Usage of ./github-action-status:
   -last string
-    	get the results of actions for the last days (default "30d")
+        get the results of actions for the last days (default "30d")
   -login string
-    	github login
+        github login
+  -reactivateSuspended
+        should reactivate a suspended workflows (default true)
   -restart
-    	should restarted failed (default: false)
+        should restarted failed
   -skipArchive
-    	skip archived (default: true)
+        skip archived (default true)
   -token string
-    	github token
+        github token
   -verbose
-    	verbose mode (default: true)
+        verbose mode (default true)
 ```
