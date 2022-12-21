@@ -12,11 +12,33 @@ import (
 
 // Task - struct of a task
 type Task struct {
-	owner                 string
-	repo                  string
-	shouldRestartedFailed bool
-	verbose               bool
-	last                  string
+	owner                              string
+	repo                               string
+	shouldRestartedFailed              bool
+	shouldReactivateSuspendedWorkflows bool
+	verbose                            bool
+	last                               string
+}
+
+func reactivateSuspendedWorkflows(ctx context.Context, client *github.Client, task Task) {
+	workflows, _, err := client.Actions.ListWorkflows(ctx, task.owner, task.repo, &github.ListOptions{
+		Page:    1,
+		PerPage: 100,
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	for _, workflow := range workflows.Workflows {
+		if *workflow.State == "disabled_inactivity" {
+			_, err := client.Actions.EnableWorkflowByID(ctx, task.owner, task.repo, *workflow.ID)
+			if err != nil {
+				log.Println(err.Error())
+			}
+			if task.verbose {
+				PrintReactivateWorkflowsStatus(task, workflow)
+			}
+		}
+	}
 }
 
 func getWorkflowRuns(ctx context.Context, client *github.Client, task Task) []*github.WorkflowRun {
@@ -35,12 +57,15 @@ func getWorkflowRuns(ctx context.Context, client *github.Client, task Task) []*g
 
 func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
 	defer wg.Done()
+	if task.shouldReactivateSuspendedWorkflows {
+		reactivateSuspendedWorkflows(ctx, client, task)
+	}
 	filteredRuns := ProcessingWorkflowRuns(task, getWorkflowRuns(ctx, client, task))
 	if len(filteredRuns) == 0 {
 		return
 	}
 	if task.verbose {
-		PrintStatus(task, filteredRuns)
+		PrintRunnersStatus(task, filteredRuns)
 	}
 	if task.shouldRestartedFailed {
 		for _, run := range filteredRuns {
@@ -76,15 +101,17 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 		}).([]*github.Repository)
 	}
 	shouldRestartedFailed := GetBoolArgFromContext(ctx, "shouldRestartedFailed")
+	shouldReactivateSuspendedWorkflows := GetBoolArgFromContext(ctx, "shouldReactivateSuspendedWorkflows")
 	verbose := GetBoolArgFromContext(ctx, "verbose")
 	last := GetStringArgFromContext(ctx, "last")
 	for _, repo := range repos {
 		*tasks = append(*tasks, Task{
-			owner:                 org,
-			repo:                  repo.GetName(),
-			shouldRestartedFailed: shouldRestartedFailed,
-			verbose:               verbose,
-			last:                  last,
+			owner:                              org,
+			repo:                               repo.GetName(),
+			shouldRestartedFailed:              shouldRestartedFailed,
+			shouldReactivateSuspendedWorkflows: shouldReactivateSuspendedWorkflows,
+			verbose:                            verbose,
+			last:                               last,
 		})
 	}
 }
@@ -93,6 +120,7 @@ func main() {
 	githubLoginValue := flag.String("login", "", "github login")
 	accessTokenValue := flag.String("token", "", "github token")
 	shouldRestartedFailedValue := flag.Bool("restart", false, "should restarted failed")
+	shouldReactivateSuspendedWorkflows := flag.Bool("reactivateSuspended", true, "should reactivate a suspended workflows")
 	verboseValue := flag.Bool("verbose", true, "verbose mode")
 	lastValue := flag.String("last", "30d", "get the results of actions for the last days")
 	skipArchiveValue := flag.Bool("skipArchive", true, "skip archived")
@@ -104,6 +132,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx = AddBoolArgToContext(ctx, "shouldRestartedFailed", *shouldRestartedFailedValue)
+	ctx = AddBoolArgToContext(ctx, "shouldReactivateSuspendedWorkflows", *shouldReactivateSuspendedWorkflows)
 	ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
 	ctx = AddStringArgToContext(ctx, "last", *lastValue)
 	ctx = AddBoolArgToContext(ctx, "skipArchive", *skipArchiveValue)

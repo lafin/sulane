@@ -20,8 +20,8 @@ var (
 	fillCircle  = "\u25cf"
 )
 
-// PrintStatus - print status of runners
-func PrintStatus(task Task, runs []*github.WorkflowRun) {
+// PrintRunnersStatus - print status of runners
+func PrintRunnersStatus(task Task, runs []*github.WorkflowRun) {
 	fmt.Printf("%s/%s\n", task.owner, task.repo)
 	for _, run := range runs {
 		symbol := fillCircle
@@ -38,4 +38,11 @@ func PrintStatus(task Task, runs []*github.WorkflowRun) {
 		fmt.Printf("  %s %s %s %s %s", symbol, run.GetName(), run.GetStatus(), run.GetConclusion(), run.GetCreatedAt())
 		fmt.Println(colorReset)
 	}
+}
+
+// PrintReactivateWorkflowsStatus - print the reactivation status of workflows
+func PrintReactivateWorkflowsStatus(task Task, workflow *github.Workflow) {
+	fmt.Print(colorGray)
+	fmt.Printf("%s/%s - \"%s\" was reactivated", task.owner, task.repo, workflow.GetName())
+	fmt.Println(colorReset)
 }
