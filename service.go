@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v49/github"
 	"github.com/thoas/go-funk"
 )
 
