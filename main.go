@@ -4,117 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
-	"sync"
-
-	"github.com/google/go-github/v49/github"
-	"github.com/thoas/go-funk"
 )
-
-// Task - struct of a task
-type Task struct {
-	owner                              string
-	repo                               string
-	shouldRestartedFailed              bool
-	shouldReactivateSuspendedWorkflows bool
-	verbose                            bool
-	last                               string
-}
-
-func reactivateSuspendedWorkflows(ctx context.Context, client *github.Client, task Task) {
-	workflows, _, err := client.Actions.ListWorkflows(ctx, task.owner, task.repo, &github.ListOptions{
-		Page:    1,
-		PerPage: 100,
-	})
-	if err != nil {
-		log.Panic(err)
-	}
-	for _, workflow := range workflows.Workflows {
-		if *workflow.State == "disabled_inactivity" {
-			_, err := client.Actions.EnableWorkflowByID(ctx, task.owner, task.repo, *workflow.ID)
-			if err != nil {
-				log.Println(err.Error())
-			}
-			if task.verbose {
-				PrintReactivateWorkflowsStatus(task, workflow)
-			}
-		}
-	}
-}
-
-func getWorkflowRuns(ctx context.Context, client *github.Client, task Task) []*github.WorkflowRun {
-	var runs []*github.WorkflowRun
-	for _, event := range []string{"push", "schedule", "workflow_dispatch"} {
-		workflowRuns, _, err := client.Actions.ListRepositoryWorkflowRuns(ctx, task.owner, task.repo, &github.ListWorkflowRunsOptions{
-			Event: event,
-		})
-		if err != nil {
-			log.Panic(err)
-		}
-		runs = append(runs, workflowRuns.WorkflowRuns...)
-	}
-	return runs
-}
-
-func worker(ctx context.Context, client *github.Client, task Task, wg *sync.WaitGroup) {
-	defer wg.Done()
-	if task.shouldReactivateSuspendedWorkflows {
-		reactivateSuspendedWorkflows(ctx, client, task)
-	}
-	filteredRuns := ProcessingWorkflowRuns(task, getWorkflowRuns(ctx, client, task))
-	if len(filteredRuns) == 0 {
-		return
-	}
-	if task.verbose {
-		PrintRunnersStatus(task, filteredRuns)
-	}
-	if task.shouldRestartedFailed {
-		for _, run := range filteredRuns {
-			if run.GetConclusion() == "failure" {
-				_, err := client.Actions.RerunWorkflowByID(ctx, task.owner, task.repo, run.GetID())
-				if err != nil {
-					log.Panic(err)
-				}
-			}
-		}
-	}
-}
-
-func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task, user, org string) {
-	var repos []*github.Repository
-	var err error
-	if user == "" {
-		repos, _, err = client.Repositories.ListByOrg(ctx, org, nil)
-	} else {
-		org = user
-		repos, _, err = client.Repositories.List(ctx, user, nil)
-	}
-	if _, ok := err.(*github.RateLimitError); ok {
-		log.Panic("hit rate limit")
-	}
-	if err != nil {
-		log.Panic(err)
-	}
-	skipArchive := GetBoolArgFromContext(ctx, "skipArchive")
-	if skipArchive {
-		repos = funk.Filter(repos, func(repo *github.Repository) bool {
-			return !repo.GetArchived()
-		}).([]*github.Repository)
-	}
-	shouldRestartedFailed := GetBoolArgFromContext(ctx, "shouldRestartedFailed")
-	shouldReactivateSuspendedWorkflows := GetBoolArgFromContext(ctx, "shouldReactivateSuspendedWorkflows")
-	verbose := GetBoolArgFromContext(ctx, "verbose")
-	last := GetStringArgFromContext(ctx, "last")
-	for _, repo := range repos {
-		*tasks = append(*tasks, Task{
-			owner:                              org,
-			repo:                               repo.GetName(),
-			shouldRestartedFailed:              shouldRestartedFailed,
-			shouldReactivateSuspendedWorkflows: shouldReactivateSuspendedWorkflows,
-			verbose:                            verbose,
-			last:                               last,
-		})
-	}
-}
 
 func main() {
 	githubLoginValue := flag.String("login", "", "github login")
@@ -124,8 +14,11 @@ func main() {
 	verboseValue := flag.Bool("verbose", true, "verbose mode")
 	lastValue := flag.String("last", "30d", "get the results of actions for the last days")
 	skipArchiveValue := flag.Bool("skipArchive", true, "skip archived")
+	doMergeOnePrPerDayIfNoActionTodayValue := flag.Bool("doMergeOnePrPerDayIfNoActionToday", false, "do merge one PR per day if no action today")
 	flag.Parse()
-	if *githubLoginValue == "" || *accessTokenValue == "" {
+	userLogin := *githubLoginValue
+	accessToken := *accessTokenValue
+	if userLogin == "" || accessToken == "" {
 		log.Println("should specify a github login and a github token")
 		return
 	}
@@ -136,21 +29,10 @@ func main() {
 	ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
 	ctx = AddStringArgToContext(ctx, "last", *lastValue)
 	ctx = AddBoolArgToContext(ctx, "skipArchive", *skipArchiveValue)
-	client := GetClient(ctx, *accessTokenValue)
+	client := GetClient(ctx, accessToken)
 
-	tasks := []Task{}
-	addTasksForLogin(ctx, client, &tasks, *githubLoginValue, "")
-	orgs, _, err := client.Organizations.List(ctx, *githubLoginValue, nil)
-	if err != nil {
-		log.Panic(err)
+	if *doMergeOnePrPerDayIfNoActionTodayValue {
+		DoMergeOnePrPerDayIfNoActionToday(ctx, client, userLogin)
 	}
-	for _, org := range orgs {
-		addTasksForLogin(ctx, client, &tasks, "", org.GetLogin())
-	}
-	var wg sync.WaitGroup
-	for _, task := range tasks {
-		wg.Add(1)
-		go worker(ctx, client, task, &wg)
-	}
-	wg.Wait()
+	GetWorkflowsStatus(ctx, client, userLogin)
 }
