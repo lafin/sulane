@@ -10,18 +10,20 @@
 $ go install github.com/lafin/sulane
 $ sulane -h
   Usage of ./sulane:
+  -doMergeOnePrPerDayIfNoActionToday
+    	do merge one PR per day if no action today
   -last string
-        get the results of actions for the last days (default "30d")
+    	get the results of actions for the last days (default "30d")
   -login string
-        github login
+    	github login
   -reactivateSuspended
-        should reactivate a suspended workflows (default true)
+    	should reactivate a suspended workflows (default true)
   -restart
-        should restarted failed
+    	should restarted failed
   -skipArchive
-        skip archived (default true)
+    	skip archived (default true)
   -token string
-        github token
+    	github token
   -verbose
-        verbose mode (default true)
+    	verbose mode (default true)
 ```
