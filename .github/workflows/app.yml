@@ -38,29 +38,11 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.19"
-      - name: Build
-        run: |
-          goos=("linux" "darwin" "windows")
-          goarch=("amd64" "arm64")
-          for os in "${goos[@]}"; do
-            for arch in "${goarch[@]}"; do
-              ext=`if [ $os == "windows" ]; then echo ".exe"; fi`;
-              GOOS=${os} GOARCH=${arch} go build -o "releases/sulane${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
-              tar czf "releases/sulane-${os}-${arch}.tar.gz" -C "releases" "sulane${ext}"
-              rm releases/sulane${ext}
-            done
-          done
-      - name: Get Tag name
-        run: echo "TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
-      - name: Create Release
-        uses: ncipollo/release-action@v1
+          go-version: 1.19
+      - uses: goreleaser/goreleaser-action@v4
+        if: success() && startsWith(github.ref, 'refs/tags/')
         with:
-          name: "${{ env.TAG }}"
-          tag: "${{ env.TAG }}"
-          body: |
-            ### `sulane` @ ${{ env.TAG }}
-          artifacts: "releases/sulane-*"
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
