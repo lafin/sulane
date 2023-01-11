@@ -1,4 +1,4 @@
-module github.com/lafin/github-action-status
+module github.com/lafin/sulane
 
 go 1.19
 

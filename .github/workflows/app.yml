@@ -1,4 +1,4 @@
-name: github-action-status
+name: sulane
 on:
   push:
     branches:
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.19'
+          go-version: "1.19"
       - uses: golangci/golangci-lint-action@v3
         with:
           version: latest
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.19'
+          go-version: "1.19"
       - name: Build
         run: |
           goos=("linux" "darwin" "windows")
@@ -46,9 +46,9 @@ jobs:
           for os in "${goos[@]}"; do
             for arch in "${goarch[@]}"; do
               ext=`if [ $os == "windows" ]; then echo ".exe"; fi`;
-              GOOS=${os} GOARCH=${arch} go build -o "releases/github-action-status${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
-              tar czf "releases/github-action-status-${os}-${arch}.tar.gz" -C "releases" "github-action-status${ext}"
-              rm releases/github-action-status${ext}
+              GOOS=${os} GOARCH=${arch} go build -o "releases/sulane${ext}" -ldflags "-X main.revision=${VERSION} -s -w" .
+              tar czf "releases/sulane-${os}-${arch}.tar.gz" -C "releases" "sulane${ext}"
+              rm releases/sulane${ext}
             done
           done
       - name: Get Tag name
@@ -59,8 +59,8 @@ jobs:
           name: "${{ env.TAG }}"
           tag: "${{ env.TAG }}"
           body: |
-            ### `github-action-status` @ ${{ env.TAG }}
-          artifacts: "releases/github-action-status-*"
+            ### `sulane` @ ${{ env.TAG }}
+          artifacts: "releases/sulane-*"
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
