@@ -23,7 +23,7 @@ func DoMergeOnePrPerDayIfNoActionToday(ctx context.Context, client *github.Clien
 	event := funk.Find(events, func(event *github.Event) bool {
 		return event.GetCreatedAt().Format("2006-01-02") == time.Now().Format("2006-01-02")
 	})
-	if event != nil {
+	if event == nil {
 		result, _, err := client.Search.Issues(ctx, fmt.Sprintf("is:open is:pr assignee:%s label:\"automated pr\"", userLogin), &github.SearchOptions{
 			ListOptions: github.ListOptions{
 				Page:    1,
