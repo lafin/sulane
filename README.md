@@ -7,7 +7,7 @@
 ### How to use
 
 ```sh
-$ go install github.com/lafin/sulane
+$ go install github.com/lafin/sulane@latest
 $ sulane -h
   Usage of ./sulane:
   -doMergeOnePrPerDayIfNoActionToday
