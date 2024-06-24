@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/google/go-github/v49/github"
+	"github.com/google/go-github/v62/github"
 	"github.com/thoas/go-funk"
 )
 
