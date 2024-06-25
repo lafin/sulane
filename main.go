@@ -33,7 +33,7 @@ type SearchConfig struct {
 // Config represents the structure of your YAML file with nested workflows
 type Config struct {
 	GithubLogin string           `yaml:"github_login"`
-	AccessToken string           `yaml:"access_token"`
+	GithubToken string           `yaml:"github_token"`
 	Workflows   *WorkflowsConfig `yaml:"workflows"`
 	Searches    *[]SearchConfig  `yaml:"searches"`
 }
@@ -99,13 +99,13 @@ func main() {
 		log.Fatalf("Error reading config file: %v", err)
 	}
 
-	if config.GithubLogin == "" || config.AccessToken == "" {
+	if config.GithubLogin == "" || config.GithubToken == "" {
 		log.Println("You must specify a GitHub login and a GitHub token in the config file.")
 		return
 	}
 
 	ctx := context.Background()
-	client := GetClient(ctx, config.AccessToken)
+	client := GetClient(ctx, config.GithubToken)
 
 	if config.Workflows != nil {
 		if !config.Workflows.Active {

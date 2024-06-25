@@ -22,7 +22,7 @@ $ sulane -h
 
 ```yaml
 github_login: "your-github-login"
-access_token: "your-access-token"
+github_token: "your-access-token"
 # workflows:
 #   active: false
 #   should_restart_failed: false
