@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,10 +33,12 @@ type SearchConfig struct {
 
 // Config represents the structure of your YAML file with nested workflows
 type Config struct {
-	GithubLogin string           `yaml:"github_login"`
-	GithubToken string           `yaml:"github_token"`
-	Workflows   *WorkflowsConfig `yaml:"workflows"`
-	Searches    *[]SearchConfig  `yaml:"searches"`
+	GithubLogin    string           `yaml:"github_login"`
+	GithubToken    string           `yaml:"github_token"`
+	TelegramToken  string           `yaml:"telegram_token"`
+	TelegramChatID string           `yaml:"telegram_chat_id"`
+	Workflows      *WorkflowsConfig `yaml:"workflows"`
+	Searches       *[]SearchConfig  `yaml:"searches"`
 }
 
 // MergeConfig merges the default config with the user config
@@ -106,6 +109,16 @@ func main() {
 
 	ctx := context.Background()
 	client := GetClient(ctx, config.GithubToken)
+
+	if config.TelegramToken != "" && config.TelegramChatID != "" {
+		bot, err := tgbotapi.NewBotAPI(config.TelegramToken)
+		if err != nil {
+			log.Panic("telegram api", err)
+		}
+		bot.Debug = true
+		ctx = AddAnyArgToContext(ctx, "bot", bot)
+		ctx = AddStringArgToContext(ctx, "chat_id", config.TelegramChatID)
+	}
 
 	if config.Workflows != nil {
 		if !config.Workflows.Active {

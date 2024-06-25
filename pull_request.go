@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/google/go-github/v62/github"
@@ -41,6 +42,7 @@ func AutoApprovePullRequests(ctx context.Context, client *github.Client) {
 				}
 				if !dry {
 					ApprovePullRequest(ctx, client, owner, repo, pr.GetNumber())
+					SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s", pr.GetHTMLURL()))
 				}
 			} else {
 				reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, pr.GetNumber(), nil)
@@ -55,6 +57,7 @@ func AutoApprovePullRequests(ctx context.Context, client *github.Client) {
 					}
 					if !dry {
 						ApprovePullRequest(ctx, client, owner, repo, pr.GetNumber())
+						SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s", pr.GetHTMLURL()))
 					}
 				}
 			}

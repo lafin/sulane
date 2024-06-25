@@ -23,6 +23,8 @@ $ sulane -h
 ```yaml
 github_login: "your-github-login"
 github_token: "your-access-token"
+telegram_token: "your-telegram-token"
+telegram_chat_id: "your-telegram-chat-id"
 # workflows:
 #   active: false
 #   should_restart_failed: false

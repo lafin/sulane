@@ -37,3 +37,20 @@ func GetStringArgFromContext(ctx context.Context, key string) string {
 	}
 	return value
 }
+
+// AddAnyArgToContext - add an argument to the context
+func AddAnyArgToContext(ctx context.Context, key string, value any) context.Context {
+	if value != nil {
+		ctx = context.WithValue(ctx, contextKey(key), value)
+	}
+	return ctx
+}
+
+// GetAnyArgFromContext - get an argument from the context
+func GetAnyArgFromContext(ctx context.Context, key string) any {
+	var value = any(nil)
+	if v := ctx.Value(contextKey(key)); v != nil {
+		value = v
+	}
+	return value
+}
