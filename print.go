@@ -46,3 +46,10 @@ func PrintReactivateWorkflowsStatus(task Task, workflow *github.Workflow) {
 	fmt.Printf("%s/%s - \"%s\" was reactivated", task.owner, task.repo, workflow.GetName())
 	fmt.Println(colorReset)
 }
+
+// PrintPullRequestApproveStatus - print the approval status of pull requests
+func PrintPullRequestApproveStatus(pr *github.Issue) {
+	fmt.Print(colorGreen)
+	fmt.Printf("Approved PR: %s", pr.GetHTMLURL())
+	fmt.Println(colorReset)
+}

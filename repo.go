@@ -37,25 +37,25 @@ func DoMergeOnePrPerDayIfNoActionToday(ctx context.Context, client *github.Clien
 		}
 		pr := result.Issues[0]
 		parsedRepoLink := strings.Split(pr.GetPullRequestLinks().GetURL(), "/")
-		repoOwner := parsedRepoLink[4]
-		repoName := parsedRepoLink[5]
-		_, _, err = client.PullRequests.CreateReview(ctx, repoOwner, repoName, pr.GetNumber(), &github.PullRequestReviewRequest{
+		owner := parsedRepoLink[4]
+		repo := parsedRepoLink[5]
+		_, _, err = client.PullRequests.CreateReview(ctx, owner, repo, pr.GetNumber(), &github.PullRequestReviewRequest{
 			Event: github.String("APPROVE"),
 		})
 		if err != nil {
 			log.Panic(err)
 		}
-		repo, _, err := client.Repositories.Get(ctx, repoOwner, repoName)
+		repository, _, err := client.Repositories.Get(ctx, owner, repo)
 		if err != nil {
 			log.Panic(err)
 		}
 		mergeMethod := "merge"
-		if repo.GetAllowRebaseMerge() {
+		if repository.GetAllowRebaseMerge() {
 			mergeMethod = "rebase"
-		} else if repo.GetAllowSquashMerge() {
+		} else if repository.GetAllowSquashMerge() {
 			mergeMethod = "squash"
 		}
-		_, _, err = client.PullRequests.Merge(ctx, repoOwner, repoName, pr.GetNumber(), "", &github.PullRequestOptions{
+		_, _, err = client.PullRequests.Merge(ctx, owner, repo, pr.GetNumber(), "", &github.PullRequestOptions{
 			MergeMethod: mergeMethod,
 		})
 		if err != nil {

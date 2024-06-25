@@ -85,7 +85,7 @@ func addTasksForLogin(ctx context.Context, client *github.Client, tasks *[]Task,
 		repos, _, err = client.Repositories.ListByOrg(ctx, org, nil)
 	} else {
 		org = userLogin
-		repos, _, err = client.Repositories.List(ctx, userLogin, nil)
+		repos, _, err = client.Repositories.ListByUser(ctx, userLogin, nil)
 	}
 	if _, ok := err.(*github.RateLimitError); ok {
 		log.Panic("hit rate limit")

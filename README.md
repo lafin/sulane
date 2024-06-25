@@ -12,6 +12,8 @@ $ sulane -h
   Usage of ./sulane:
   -config string
     	path to config file (default "config.yaml")
+  -dry
+    	dry run mode
   -verbose
     	verbose mode (default true)
 ```
@@ -21,9 +23,18 @@ $ sulane -h
 ```yaml
 github_login: "your-github-login"
 access_token: "your-access-token"
-# should_restart_failed: false
-# should_reactivate_suspended_workflows: true
-last: "7d"
-# skip_archive: true
-# do_merge_one_pr_per_day_if_no_action_today: false
+# workflows:
+#   active: false
+#   should_restart_failed: false
+#   should_reactivate_suspended_workflows: true
+#   last: "30d"
+#   skip_archive: true
+#   do_merge_one_pr_per_day_if_no_action_today: false
+# searches:
+#   - query: "is:open is:pr review-requested:user-name archived:false"
+#     active: true
+#     owner: "owner-name"
+#     repo: "repo-name"
+#     should_auto_approve_if_reviewed_by: "user-name"
+#     should_auto_approve_if_created_by: "user-name"
 ```
