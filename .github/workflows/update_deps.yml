@@ -7,13 +7,13 @@ jobs:
   update_deps:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
     - name: Go dependencies
       run: |
         go mod tidy && go get -u
         go build -o app . && rm -rf ./app
-    - uses: peter-evans/create-pull-request@v5
+    - uses: peter-evans/create-pull-request@v6
       with:
         commit-message: "feat: bump deps"
         branch: "update-deps"
