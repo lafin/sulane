@@ -35,8 +35,6 @@ telegram_chat_id: "your-telegram-chat-id"
 # searches:
 #   - query: "is:open is:pr review-requested:user-name archived:false"
 #     active: true
-#     owner: "owner-name"
-#     repo: "repo-name"
 #     should_auto_approve_if_reviewed_by: "user-name"
 #     should_auto_approve_if_created_by: "user-name"
 ```
