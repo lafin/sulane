@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/google/go-github/v62/github"
 	"github.com/thoas/go-funk"
@@ -19,13 +20,17 @@ func ApprovePullRequest(ctx context.Context, client *github.Client, owner, repo 
 	}
 }
 
+func getOwnerAndRepoFromURL(url string) (owner, repo string) {
+	url = url[29:]
+	parts := strings.Split(url, "/")
+	return parts[0], parts[1]
+}
+
 // AutoApprovePullRequests - auto approve pull requests
 func AutoApprovePullRequests(ctx context.Context, client *github.Client) {
 	verbose := GetBoolArgFromContext(ctx, "verbose")
 	dry := GetBoolArgFromContext(ctx, "dry")
 	query := GetStringArgFromContext(ctx, "query")
-	owner := GetStringArgFromContext(ctx, "owner")
-	repo := GetStringArgFromContext(ctx, "repo")
 	shouldAutoApproveIfReviewedBy := GetStringArgFromContext(ctx, "shouldAutoApproveIfReviewedBy")
 	shouldAutoApproveIfCreatedBy := GetStringArgFromContext(ctx, "shouldAutoApproveIfCreatedBy")
 
@@ -34,31 +39,33 @@ func AutoApprovePullRequests(ctx context.Context, client *github.Client) {
 		log.Panic(err)
 	}
 	for _, issue := range result.Issues {
-		if !issue.GetDraft() && issue.IsPullRequest() {
-			pr := issue
-			if pr.GetUser().GetLogin() == shouldAutoApproveIfCreatedBy {
+		if !(!issue.GetDraft() && issue.IsPullRequest()) {
+			continue
+		}
+		pr := issue
+		owner, repo := getOwnerAndRepoFromURL(pr.GetRepositoryURL())
+		if pr.GetUser().GetLogin() == shouldAutoApproveIfCreatedBy {
+			if verbose {
+				PrintPullRequestApproveStatus(pr)
+			}
+			if !dry {
+				ApprovePullRequest(ctx, client, owner, repo, pr.GetNumber())
+				SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s\n%s", pr.GetHTMLURL(), pr.GetTitle()))
+			}
+		} else {
+			reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, pr.GetNumber(), nil)
+			if err != nil {
+				log.Panic(err)
+			}
+			if funk.Some(reviews, func(review *github.PullRequestReview) bool {
+				return review.GetState() == "APPROVED" && review.GetUser().GetLogin() == shouldAutoApproveIfReviewedBy
+			}) {
 				if verbose {
 					PrintPullRequestApproveStatus(pr)
 				}
 				if !dry {
 					ApprovePullRequest(ctx, client, owner, repo, pr.GetNumber())
-					SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s", pr.GetHTMLURL()))
-				}
-			} else {
-				reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, pr.GetNumber(), nil)
-				if err != nil {
-					log.Panic(err)
-				}
-				if funk.Some(reviews, func(review *github.PullRequestReview) bool {
-					return review.GetState() == "APPROVED" && review.GetUser().GetLogin() == shouldAutoApproveIfReviewedBy
-				}) {
-					if verbose {
-						PrintPullRequestApproveStatus(pr)
-					}
-					if !dry {
-						ApprovePullRequest(ctx, client, owner, repo, pr.GetNumber())
-						SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s", pr.GetHTMLURL()))
-					}
+					SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s\n%s", pr.GetHTMLURL(), pr.GetTitle()))
 				}
 			}
 		}

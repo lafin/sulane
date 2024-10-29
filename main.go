@@ -25,8 +25,6 @@ type WorkflowsConfig struct {
 type SearchConfig struct {
 	Active                        bool   `yaml:"active"`
 	Query                         string `yaml:"query"`
-	Owner                         string `yaml:"owner"`
-	Repo                          string `yaml:"repo"`
 	ShouldAutoApproveIfReviewedBy string `yaml:"should_auto_approve_if_reviewed_by"`
 	ShouldAutoApproveIfCreatedBy  string `yaml:"should_auto_approve_if_created_by"`
 }
@@ -145,8 +143,6 @@ func main() {
 			ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
 			ctx = AddBoolArgToContext(ctx, "dry", *dryValue)
 			ctx = AddStringArgToContext(ctx, "query", search.Query)
-			ctx = AddStringArgToContext(ctx, "owner", search.Owner)
-			ctx = AddStringArgToContext(ctx, "repo", search.Repo)
 			ctx = AddStringArgToContext(ctx, "shouldAutoApproveIfReviewedBy", search.ShouldAutoApproveIfReviewedBy)
 			ctx = AddStringArgToContext(ctx, "shouldAutoApproveIfCreatedBy", search.ShouldAutoApproveIfCreatedBy)
 			AutoApprovePullRequests(ctx, client)
