@@ -53,7 +53,10 @@ func AutoApprovePullRequests(ctx context.Context, client *github.Client) {
 				SendTelegramMessage(ctx, fmt.Sprintf("Approved PR: %s\n%s", pr.GetHTMLURL(), pr.GetTitle()))
 			}
 		} else {
-			reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, pr.GetNumber(), nil)
+			reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, pr.GetNumber(), &github.ListOptions{
+				Page:    1,
+				PerPage: 100,
+			})
 			if err != nil {
 				log.Panic(err)
 			}
