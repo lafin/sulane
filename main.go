@@ -14,11 +14,11 @@ import (
 // WorkflowsConfig represents the workflows section of the YAML file with default values
 type WorkflowsConfig struct {
 	Active                             bool   `yaml:"active"`
-	ShouldRestartFailed                bool   `yaml:"should_restart_failed"`
-	ShouldReactivateSuspendedWorkflows bool   `yaml:"should_reactivate_suspended_workflows"`
+	ShouldRestartFailed                *bool  `yaml:"should_restart_failed"`
+	ShouldReactivateSuspendedWorkflows *bool  `yaml:"should_reactivate_suspended_workflows"`
 	Last                               string `yaml:"last"`
-	SkipArchive                        bool   `yaml:"skip_archive"`
-	DoMergeOnePrPerDayIfNoActionToday  bool   `yaml:"do_merge_one_pr_per_day_if_no_action_today"`
+	SkipArchive                        *bool  `yaml:"skip_archive"`
+	DoMergeOnePrPerDayIfNoActionToday  *bool  `yaml:"do_merge_one_pr_per_day_if_no_action_today"`
 }
 
 // SearchConfig represents the searches section of the YAML file with default values
@@ -39,41 +39,53 @@ type Config struct {
 	Searches       *[]SearchConfig  `yaml:"searches"`
 }
 
+// boolPtr returns a pointer to value, used to express config defaults.
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+// boolValue dereferences an optional config flag; an unset flag is false.
+func boolValue(value *bool) bool {
+	return value != nil && *value
+}
+
 // MergeConfig merges the default config with the user config
 func MergeConfig(config, defaultConfig *Config) *Config {
-	if config.Workflows != nil && config.Workflows.Active {
-		if !config.Workflows.ShouldRestartFailed {
+	if config.Workflows != nil && defaultConfig != nil && defaultConfig.Workflows != nil {
+		if config.Workflows.ShouldRestartFailed == nil {
 			config.Workflows.ShouldRestartFailed = defaultConfig.Workflows.ShouldRestartFailed
 		}
-		if !config.Workflows.ShouldReactivateSuspendedWorkflows {
+		if config.Workflows.ShouldReactivateSuspendedWorkflows == nil {
 			config.Workflows.ShouldReactivateSuspendedWorkflows = defaultConfig.Workflows.ShouldReactivateSuspendedWorkflows
 		}
 		if config.Workflows.Last == "" {
 			config.Workflows.Last = defaultConfig.Workflows.Last
 		}
-		if !config.Workflows.SkipArchive {
+		if config.Workflows.SkipArchive == nil {
 			config.Workflows.SkipArchive = defaultConfig.Workflows.SkipArchive
 		}
-		if !config.Workflows.DoMergeOnePrPerDayIfNoActionToday {
+		if config.Workflows.DoMergeOnePrPerDayIfNoActionToday == nil {
 			config.Workflows.DoMergeOnePrPerDayIfNoActionToday = defaultConfig.Workflows.DoMergeOnePrPerDayIfNoActionToday
 		}
 	}
 	return config
 }
 
-// ReadConfig reads the YAML config file and unmarshals it into the Config struct
-func ReadConfig(filename string) (*Config, error) {
-	// Set default values
-	defaultConfig := &Config{
+// defaultConfig returns the config values applied to every key a user config omits.
+func defaultConfig() *Config {
+	return &Config{
 		Workflows: &WorkflowsConfig{
-			ShouldRestartFailed:                false,
-			ShouldReactivateSuspendedWorkflows: true,
+			ShouldRestartFailed:                boolPtr(false),
+			ShouldReactivateSuspendedWorkflows: boolPtr(true),
 			Last:                               "30d",
-			SkipArchive:                        true,
-			DoMergeOnePrPerDayIfNoActionToday:  false,
+			SkipArchive:                        boolPtr(true),
+			DoMergeOnePrPerDayIfNoActionToday:  boolPtr(false),
 		},
 	}
+}
 
+// ReadConfig reads the YAML config file and unmarshals it into the Config struct
+func ReadConfig(filename string) (*Config, error) {
 	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		return nil, err
@@ -86,7 +98,7 @@ func ReadConfig(filename string) (*Config, error) {
 		return nil, err
 	}
 
-	return MergeConfig(config, defaultConfig), nil
+	return MergeConfig(config, defaultConfig()), nil
 }
 
 func main() {
@@ -105,47 +117,51 @@ func main() {
 		return
 	}
 
-	ctx := context.Background()
-	client := GetClient(ctx, config.GithubToken)
+	workflowsActive := config.Workflows != nil && config.Workflows.Active
+	if workflowsActive {
+		if _, err := parseDaysNumberFlag(config.Workflows.Last); err != nil {
+			log.Fatalf("Error in the workflows config: %v", err)
+		}
+	}
+
+	baseCtx := context.Background()
+	client := GetClient(baseCtx, config.GithubToken)
 
 	if config.TelegramToken != "" && config.TelegramChatID != "" {
 		bot, err := tgbotapi.NewBotAPI(config.TelegramToken)
 		if err != nil {
-			log.Panic("telegram api", err)
+			// A Telegram misconfiguration must not abort the GitHub work.
+			log.Printf("telegram: api: %s", redactTelegramError(err, config.TelegramToken))
+		} else {
+			baseCtx = AddAnyArgToContext(baseCtx, keyBot, bot)
+			baseCtx = AddStringArgToContext(baseCtx, keyChatID, config.TelegramChatID)
 		}
-		bot.Debug = true
-		ctx = AddAnyArgToContext(ctx, "bot", bot)
-		ctx = AddStringArgToContext(ctx, "chat_id", config.TelegramChatID)
 	}
 
-	if config.Workflows != nil {
-		if !config.Workflows.Active {
-			return
-		}
-		ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
-		ctx = AddBoolArgToContext(ctx, "dry", *dryValue)
-		ctx = AddBoolArgToContext(ctx, "shouldRestartFailed", config.Workflows.ShouldRestartFailed)
-		ctx = AddBoolArgToContext(ctx, "shouldReactivateSuspendedWorkflows", config.Workflows.ShouldReactivateSuspendedWorkflows)
-		ctx = AddStringArgToContext(ctx, "last", config.Workflows.Last)
-		ctx = AddBoolArgToContext(ctx, "skipArchive", config.Workflows.SkipArchive)
+	baseCtx = AddBoolArgToContext(baseCtx, keyVerbose, *verboseValue)
+	baseCtx = AddBoolArgToContext(baseCtx, keyDry, *dryValue)
 
-		if config.Workflows.DoMergeOnePrPerDayIfNoActionToday {
-			DoMergeOnePrPerDayIfNoActionToday(ctx, client, config.GithubLogin)
+	if workflowsActive {
+		workflowsCtx := AddBoolArgToContext(baseCtx, keyShouldRestartFailed, boolValue(config.Workflows.ShouldRestartFailed))
+		workflowsCtx = AddBoolArgToContext(workflowsCtx, keyShouldReactivateSuspendedWorkflows, boolValue(config.Workflows.ShouldReactivateSuspendedWorkflows))
+		workflowsCtx = AddStringArgToContext(workflowsCtx, keyLast, config.Workflows.Last)
+		workflowsCtx = AddBoolArgToContext(workflowsCtx, keySkipArchive, boolValue(config.Workflows.SkipArchive))
+
+		if boolValue(config.Workflows.DoMergeOnePrPerDayIfNoActionToday) {
+			DoMergeOnePrPerDayIfNoActionToday(workflowsCtx, client, config.GithubLogin)
 		}
-		GetWorkflowsStatus(ctx, client, config.GithubLogin)
+		GetWorkflowsStatus(workflowsCtx, client, config.GithubLogin)
 	}
 
 	if config.Searches != nil {
 		for _, search := range *config.Searches {
 			if !search.Active {
-				return
+				continue
 			}
-			ctx = AddBoolArgToContext(ctx, "verbose", *verboseValue)
-			ctx = AddBoolArgToContext(ctx, "dry", *dryValue)
-			ctx = AddStringArgToContext(ctx, "query", search.Query)
-			ctx = AddStringArgToContext(ctx, "shouldAutoApproveIfReviewedBy", search.ShouldAutoApproveIfReviewedBy)
-			ctx = AddStringArgToContext(ctx, "shouldAutoApproveIfCreatedBy", search.ShouldAutoApproveIfCreatedBy)
-			AutoApprovePullRequests(ctx, client)
+			searchCtx := AddStringArgToContext(baseCtx, keyQuery, search.Query)
+			searchCtx = AddStringArgToContext(searchCtx, keyShouldAutoApproveIfReviewedBy, search.ShouldAutoApproveIfReviewedBy)
+			searchCtx = AddStringArgToContext(searchCtx, keyShouldAutoApproveIfCreatedBy, search.ShouldAutoApproveIfCreatedBy)
+			AutoApprovePullRequests(searchCtx, client)
 		}
 	}
 }
